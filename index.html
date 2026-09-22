@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breach Checker · ProfessorFilou</title>
+  <meta name="description" content="Kostenlos E-Mails, Domains & Passwörter auf Datenlecks prüfen – im Stil von Have I Been Pwned, mit ProfessorFilou-Glow.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/zxcvbn@4.4.2/dist/zxcvbn.js"></script>
+  <style>
+    :root {
+      --bg-dark: #060810;
+      --bg-card: rgba(20, 25, 40, 0.72);
+      --bg-card-hover: rgba(30, 40, 60, 0.88);
+      --border: rgba(100, 140, 255, 0.14);
+      --border-glow: rgba(0, 255, 204, 0.35);
+      --text: #f2f5f9;
+      --text-muted: #9099ac;
+      --cyan: #00ffcc;
+      --violet: #8b7bff;
+      --blue: #2fd8ff;
+      --pink: #ff6bcb;
+      --accent-blue: #4facfe;
+      --accent-purple: #a78bfa;
+      --accent-pink: #f472b6;
+      --accent-green: #34d399;
+      --accent-red: #f87171;
+      --accent-yellow: #fbbf24;
+      --gradient: linear-gradient(135deg, #00ffcc 0%, #2fd8ff 35%, #8b7bff 70%, #ff6bcb 100%);
+      --gradient-soft: linear-gradient(135deg, rgba(0,255,204,0.18), rgba(139,123,255,0.18));
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    .particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 15% 15%, rgba(0, 255, 204, 0.09) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 85% 65%, rgba(139, 123, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse 50% 30% at 50% 95%, rgba(255, 107, 203, 0.05) 0%, transparent 50%);
+    }
+
+    .star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: white;
+      border-radius: 50%;
+      opacity: 0.3;
+      animation: twinkle 4s infinite ease-in-out;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 0.65; }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+    }
+
+    header { text-align: center; margin-bottom: 1.5rem; padding-top: 0.5rem; }
+
+    .logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(1.9rem, 5vw, 3rem);
+      font-weight: 700;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      background-size: 200% auto;
+      animation: holoShift 7s ease-in-out infinite;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.35rem;
+      filter: drop-shadow(0 0 22px rgba(0, 255, 204, 0.22));
+    }
+    @keyframes holoShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    .tagline { color: var(--text-muted); font-size: 0.95rem; }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--cyan); }
+
+    /* Live stats banner */
+    .stats-banner {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.65rem;
+      margin-bottom: 1.75rem;
+    }
+    .stat-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 0.9rem 1rem;
+      text-align: center;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 0 24px rgba(0, 255, 204, 0.04);
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .stat-pill:hover {
+      border-color: var(--border-glow);
+      box-shadow: 0 0 28px rgba(0, 255, 204, 0.12);
+    }
+    .stat-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .stat-sub {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      opacity: 0.85;
+      margin-top: 0.15rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.45rem;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .tab {
+      padding: 0.55rem 1.1rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.25s;
+      backdrop-filter: blur(12px);
+    }
+    .tab:hover { border-color: var(--border-glow); color: var(--text); }
+    .tab.active {
+      background: var(--gradient-soft);
+      border-color: var(--cyan);
+      color: var(--text);
+      box-shadow: 0 0 22px rgba(0, 255, 204, 0.15);
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 1.6rem;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      margin-bottom: 1.35rem;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .card:hover {
+      border-color: rgba(0, 255, 204, 0.28);
+      box-shadow: 0 8px 36px rgba(0, 255, 204, 0.08);
+    }
+
+    .card-title {
+      font-size: 1.08rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card-desc {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 1.15rem;
+      line-height: 1.5;
+    }
+    .card-desc a { color: var(--accent-blue); }
+
+    .input-group { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    textarea {
+      flex: 1;
+      min-width: 180px;
+      padding: 0.8rem 1.05rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      background: rgba(6, 8, 16, 0.65);
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    textarea { min-height: 90px; resize: vertical; width: 100%; }
+    input:focus, textarea:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(0, 255, 204, 0.12);
+    }
+    input::placeholder, textarea::placeholder { color: var(--text-muted); }
+
+    .btn {
+      padding: 0.8rem 1.4rem;
+      border-radius: 0.75rem;
+      border: none;
+      background: var(--gradient);
+      color: #0a0e17;
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+      white-space: nowrap;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 22px rgba(0, 255, 204, 0.3);
+    }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .btn-secondary:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 16px rgba(0, 255, 204, 0.15);
+      background: rgba(0, 255, 204, 0.06);
+    }
+
+    .result {
+      margin-top: 1.15rem;
+      padding: 1.05rem;
+      border-radius: 0.85rem;
+      background: rgba(6, 8, 16, 0.55);
+      border: 1px solid var(--border);
+      display: none;
+    }
+    .result.visible { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .badge-safe { background: rgba(52, 211, 153, 0.15); color: var(--accent-green); }
+    .badge-warn { background: rgba(251, 191, 36, 0.15); color: var(--accent-yellow); }
+    .badge-danger { background: rgba(248, 113, 113, 0.15); color: var(--accent-red); }
+    .badge-info { background: rgba(79, 172, 254, 0.15); color: var(--accent-blue); }
+    .badge-crit { background: rgba(255, 107, 203, 0.18); color: var(--pink); }
+
+    .score-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.08);
+      margin: 0.7rem 0 0.35rem;
+      overflow: hidden;
+    }
+    .score-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+
+    .feedback {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-top: 0.45rem;
+    }
+
+    .loading-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 1.4rem 1rem;
+      text-align: center;
+    }
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      width: 100%;
+      max-width: 300px;
+    }
+    .loading-step {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      padding: 0.3rem 0.55rem;
+      border-radius: 0.5rem;
+      background: rgba(255,255,255,0.03);
+    }
+    .loading-step.done { color: var(--accent-green); }
+    .loading-step.fail { color: var(--accent-red); }
+    .loading-step .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--text-muted); flex-shrink: 0;
+    }
+    .loading-step.done .dot { background: var(--accent-green); }
+    .loading-step.fail .dot { background: var(--accent-red); }
+    .loading-step.active .dot {
+      background: var(--cyan);
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    .error-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.7rem;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      background: rgba(248, 113, 113, 0.08);
+      border: 1px solid rgba(248, 113, 113, 0.25);
+      color: var(--accent-red);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .status-card {
+      padding: 0.9rem 1rem;
+      border-radius: 0.75rem;
+      margin-bottom: 0.7rem;
+      border: 1px solid var(--border);
+      background: rgba(6, 8, 16, 0.45);
+    }
+    .status-card:last-child { margin-bottom: 0; }
+    .status-card.ok { border-color: rgba(52, 211, 153, 0.28); }
+    .status-card.warn { border-color: rgba(251, 191, 36, 0.3); }
+    .status-card.danger { border-color: rgba(248, 113, 113, 0.32); }
+    .status-card.fail { border-color: rgba(248, 113, 113, 0.2); background: rgba(248, 113, 113, 0.05); }
+
+    .status-title {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 0.35rem;
+      flex-wrap: wrap;
+    }
+
+    .breach-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+      margin-top: 0.7rem;
+    }
+    .breach-card {
+      display: flex;
+      gap: 0.9rem;
+      padding: 0.95rem 1rem;
+      border-radius: 0.9rem;
+      background: rgba(6, 8, 16, 0.7);
+      border: 1px solid var(--border);
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+      align-items: flex-start;
+    }
+    .breach-card:hover {
+      border-color: var(--cyan);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 22px rgba(0, 255, 204, 0.12);
+    }
+    .breach-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 0.55rem;
+      object-fit: contain;
+      background: rgba(255,255,255,0.06);
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+    .breach-body { flex: 1; min-width: 0; }
+    .breach-name {
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--text);
+      margin-bottom: 0.15rem;
+    }
+    .breach-meta {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+    .breach-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.28rem;
+      margin-top: 0.35rem;
+    }
+    .breach-tag {
+      font-size: 0.68rem;
+      padding: 0.14rem 0.42rem;
+      border-radius: 999px;
+      background: rgba(100, 140, 255, 0.12);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .breach-tag.industry {
+      background: rgba(139, 123, 255, 0.15);
+      border-color: rgba(139, 123, 255, 0.35);
+      color: var(--violet);
+    }
+    .breach-tag.risk-high {
+      background: rgba(248, 113, 113, 0.15);
+      border-color: rgba(248, 113, 113, 0.35);
+      color: var(--accent-red);
+    }
+    .breach-tag.data-field {
+      background: rgba(0, 255, 204, 0.08);
+      border-color: rgba(0, 255, 204, 0.25);
+      color: var(--cyan);
+    }
+    .breach-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+      margin: 0.35rem 0 0.4rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .hibp-cta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      padding: 1.05rem;
+      border-radius: 0.9rem;
+      background: linear-gradient(135deg, rgba(0,255,204,0.1), rgba(139,123,255,0.1));
+      border: 1px solid rgba(0, 255, 204, 0.3);
+      margin-bottom: 0.9rem;
+    }
+    .hibp-cta a.btn-hibp {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.7rem 1.15rem;
+      border-radius: 0.75rem;
+      background: var(--gradient);
+      color: #0a0e17;
+      font-weight: 700;
+      text-decoration: none;
+      font-size: 0.92rem;
+    }
+    .hibp-cta a.btn-hibp:hover { opacity: 0.92; }
+
+    .notice-box {
+      padding: 0.8rem 1rem;
+      border-radius: 0.75rem;
+      background: rgba(251, 191, 36, 0.08);
+      border: 1px solid rgba(251, 191, 36, 0.28);
+      color: var(--accent-yellow);
+      font-size: 0.85rem;
+      line-height: 1.45;
+      margin-bottom: 0.8rem;
+    }
+
+    .data-fields-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: 0.45rem;
+    }
+
+    .domain-result-block {
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .domain-result-block:last-child { border-bottom: none; margin-bottom: 0; }
+
+    footer {
+      text-align: center;
+      margin-top: 2.75rem;
+      padding-top: 1.4rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
+    footer a { color: var(--cyan); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    .attribution { margin-top: 0.7rem; font-size: 0.74rem; opacity: 0.85; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    @media (max-width: 600px) {
+      .input-group { flex-direction: column; }
+      .btn { width: 100%; }
+      .card { padding: 1.2rem; }
+      .stats-banner { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="particles" id="particles"></div>
+
+  <div class="container">
+    <a href="https://professorfilou.de" class="back-link">← Zurück zu ProfessorFilou</a>
+
+    <header>
+      <h1 class="logo">Breach Checker</h1>
+      <p class="tagline">Kostenlos E-Mails, Domains & Passwörter auf Leaks prüfen</p>
+    </header>
+
+    <!-- LIVE STATS -->
+    <div class="stats-banner" id="statsBanner" aria-live="polite">
+      <div class="stat-pill">
+        <div class="stat-value" id="statHibpBreaches">…</div>
+        <div class="stat-label">HIBP Vorfälle</div>
+        <div class="stat-sub" id="statHibpAccounts">Accounts laden…</div>
+      </div>
+      <div class="stat-pill">
+        <div class="stat-value" id="statXonBreaches">…</div>
+        <div class="stat-label">XposedOrNot</div>
+        <div class="stat-sub" id="statXonRecords">Records laden…</div>
+      </div>
+      <div class="stat-pill">
+        <div class="stat-value" id="stat24h">…</div>
+        <div class="stat-label">Breaches 24h</div>
+        <div class="stat-sub" id="stat7d">7 Tage: …</div>
+      </div>
+      <div class="stat-pill">
+        <div class="stat-value" id="statRansom">…</div>
+        <div class="stat-label">Ransomware 7d</div>
+        <div class="stat-sub" id="statRecords7d">Records: …</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="email">E-Mail</button>
+      <button class="tab" data-tab="domain">Domain</button>
+      <button class="tab" data-tab="password">Passwort</button>
+      <button class="tab" data-tab="breaches">Vorfälle</button>
+      <button class="tab" data-tab="pastes">Pastes</button>
+    </div>
+
+    <!-- EMAIL -->
+    <div class="panel active" id="panel-email">
+      <div class="card">
+        <div class="card-title"><span>🔍</span> E-Mail prüfen</div>
+        <p class="card-desc">
+          Mehrere kostenlose APIs gleichzeitig. Die <strong>vollständigste</strong> Datenbank bleibt
+          <a href="https://haveibeenpwned.com" target="_blank" rel="noopener">Have I Been Pwned</a>
+          (dort z. B. neuere Leaks wie Suno) – Link erscheint nach der Suche.
+        </p>
+        <div class="input-group">
+          <input type="email" id="emailInput" placeholder="email@beispiel.de" autocomplete="off">
+          <button class="btn" id="emailBtn" onclick="checkEmail()">Prüfen</button>
+        </div>
+        <div class="result" id="emailResult"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>ℹ️</span> Quellen & Limits</div>
+        <p class="card-desc" style="margin-bottom:0">
+          • <strong>XposedOrNot</strong> – kostenloser Lookup + Analytics (Branche, Risiko, Datentypen)<br>
+          • <strong>HIBP-Katalog</strong> – Logos, Datenklassen, Links zu haveibeenpwned.com/Breach/…<br>
+          • <strong>Recent Breaches</strong> – Live-Stats (24h / 7d)<br>
+          • <strong>Passwort-Tab:</strong> HIBP Pwned Passwords (k-Anonymity) + zxcvbn<br>
+          • HIBP-E-Mail-API ist kostenpflichtig – daher kein 1:1-Klon möglich
+        </p>
+      </div>
+    </div>
+
+    <!-- DOMAIN -->
+    <div class="panel" id="panel-domain">
+      <div class="card">
+        <div class="card-title"><span>🌐</span> Domain-weite Prüfung</div>
+        <p class="card-desc">
+          Mehrere Adressen einer Domain prüfen (eine E-Mail pro Zeile).
+          Die kostenlose Domain-API von XposedOrNot braucht Domain-Verifizierung + API-Key –
+          hier prüfst du stattdessen alle Adressen parallel über die Free-Endpoints.
+        </p>
+        <textarea id="domainEmails" placeholder="info@firma.de&#10;admin@firma.de&#10;support@firma.de"></textarea>
+        <div class="input-group" style="margin-top:0.75rem">
+          <button class="btn" id="domainBtn" onclick="checkDomainEmails()">Alle prüfen</button>
+          <button class="btn btn-secondary" type="button" onclick="fillDomainFromInput()">Domain → Beispiel-Adressen</button>
+        </div>
+        <div class="result" id="domainResult"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>💡</span> Tipp</div>
+        <p class="card-desc" style="margin-bottom:0">
+          Für echte Domain-Überwachung (alle bekannten Adressen der Domain) brauchst du einen
+          verifizierten Domain-Eintrag bei <a href="https://xposedornot.com" target="_blank" rel="noopener">XposedOrNot</a>
+          oder ein HIBP-Abo. Hier: manuelle Multi-Check für die Adressen, die du kennst.
+        </p>
+      </div>
+    </div>
+
+    <!-- PASSWORD -->
+    <div class="panel" id="panel-password">
+      <div class="card">
+        <div class="card-title"><span>🔐</span> Passwort-Stärke & Leak-Check</div>
+        <p class="card-desc">
+          Stärke lokal mit <strong>zxcvbn</strong>. Leak-Check über Have I Been Pwned (k-Anonymity) –
+          das volle Passwort verlässt nie deinen Browser.
+        </p>
+        <div class="input-group">
+          <input type="password" id="pwInput" placeholder="Passwort eingeben (wird nicht gespeichert)" autocomplete="off">
+          <button class="btn" id="pwBtn" onclick="checkPassword()">Prüfen</button>
+        </div>
+        <div style="margin-top:0.55rem">
+          <label style="font-size:0.8rem;color:var(--text-muted);cursor:pointer">
+            <input type="checkbox" id="showPw" onchange="togglePwVisibility()"> Passwort anzeigen
+          </label>
+        </div>
+        <div class="result" id="pwResult"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>🛡️</span> Datenschutz</div>
+        <p class="card-desc" style="margin-bottom:0">
+          Nur der SHA-1-Hash-Prefix (5 Zeichen) geht an HIBP. Volles Passwort und kompletter Hash bleiben lokal.
+        </p>
+      </div>
+    </div>
+
+    <!-- BREACHES -->
+    <div class="panel" id="panel-breaches">
+      <div class="card">
+        <div class="card-title"><span>📋</span> Bekannte Datenlecks</div>
+        <p class="card-desc">
+          Katalog von <strong>Have I Been Pwned</strong> und <strong>XposedOrNot</strong> –
+          mit Branche, Datentypen, Risiko-Hinweisen und Links.
+        </p>
+        <div class="input-group">
+          <input type="text" id="breachSearch" placeholder="Filtern: Suno, Adobe, Health Care …" autocomplete="off">
+          <button class="btn" id="breachLoadBtn" onclick="loadBreachCatalog()">Laden</button>
+        </div>
+        <div class="result visible" id="breachCatalogResult">
+          <p class="feedback" style="margin:0">Tippe auf „Laden“, um die neuesten Vorfälle zu laden.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASTES -->
+    <div class="panel" id="panel-pastes">
+      <div class="card">
+        <div class="card-title"><span>📄</span> Pastes (öffentliche Snippets)</div>
+        <p class="card-desc">
+          Bei Have I Been Pwned sind „Pastes“ öffentlich geleakte Text-Snippets (Pastebin &amp; Co.).
+          Die HIBP-Paste-API ist <strong>kostenpflichtig</strong> – daher hier kein Live-Paste-Lookup möglich.
+        </p>
+        <div class="notice-box">
+          Was du tun kannst: E-Mail im ersten Tab prüfen. XposedOrNot Analytics liefert oft Hinweise zu
+          exponierten Datentypen (inkl. privater Nachrichten / Instant Messenger). Für echte Paste-Treffer:
+          <a href="https://haveibeenpwned.com" target="_blank" rel="noopener" style="color:var(--accent-yellow)">haveibeenpwned.com</a> manuell.
+        </div>
+        <div class="input-group">
+          <input type="email" id="pasteEmail" placeholder="E-Mail für Analytics (Datentypen / Risiko)">
+          <button class="btn" onclick="checkPastesProxy()">Analytics laden</button>
+        </div>
+        <div class="result" id="pasteResult"></div>
+      </div>
+    </div>
+
+    <footer>
+      <p>Ein Projekt im Stil von <a href="https://professorfilou.de" target="_blank">ProfessorFilou.de</a></p>
+      <p class="attribution">
+        Datenquellen:
+        <a href="https://xposedornot.com" target="_blank">XposedOrNot</a> ·
+        <a href="https://haveibeenpwned.com" target="_blank">Have I Been Pwned</a> (Katalog &amp; Pwned Passwords) ·
+        <a href="https://recentbreaches.com" target="_blank">Recent Breaches</a> ·
+        zxcvbn (Dropbox)
+      </p>
+      <p style="margin-top:0.5rem;opacity:0.75">
+        Keine Garantie auf Vollständigkeit · Nur zu Bildungs- &amp; Selbstschutz-Zwecken · Kein PHP / kein LeakCheck-Proxy
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    (function createStars() {
+      const container = document.getElementById('particles');
+      for (let i = 0; i < 70; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 4 + 's';
+        star.style.width = star.style.height = (Math.random() * 2 + 1) + 'px';
+        container.appendChild(star);
+      }
+    })();
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    function togglePwVisibility() {
+      document.getElementById('pwInput').type =
+        document.getElementById('showPw').checked ? 'text' : 'password';
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str == null ? '' : String(str);
+      return div.innerHTML;
+    }
+
+    function formatNum(n) {
+      if (n == null || isNaN(n)) return '—';
+      return Number(n).toLocaleString('de-DE');
+    }
+
+    function formatCompact(n) {
+      if (n == null || isNaN(n)) return '—';
+      if (n >= 1e9) return (n / 1e9).toFixed(1).replace('.0', '') + ' Mrd.';
+      if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '') + ' Mio.';
+      if (n >= 1e3) return (n / 1e3).toFixed(1).replace('.0', '') + ' Tsd.';
+      return formatNum(n);
+    }
+
+    async function sha1(str) {
+      const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+
+    function stripHtml(html) {
+      if (!html) return '';
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      return (tmp.textContent || tmp.innerText || '').trim();
+    }
+
+    // —— Catalogs ——
+    let hibpBreachMap = null;
+    let allHibpBreaches = null;
+    let xonBreachMap = null;
+    let allXonBreaches = null;
+
+    async function loadHibpBreaches() {
+      if (hibpBreachMap) return hibpBreachMap;
+      try {
+        const res = await fetch('https://haveibeenpwned.com/api/v3/breaches', {
+          headers: { Accept: 'application/json', 'User-Agent': 'ProfessorFilou-BreachChecker' }
+        });
+        if (!res.ok) return {};
+        const list = await res.json();
+        allHibpBreaches = list;
+        hibpBreachMap = {};
+        for (const b of list) {
+          hibpBreachMap[b.Name] = b;
+          if (b.Title) hibpBreachMap[b.Title] = b;
+        }
+        return hibpBreachMap;
+      } catch {
+        return {};
+      }
+    }
+
+    async function loadXonBreaches() {
+      if (xonBreachMap) return xonBreachMap;
+      try {
+        const res = await fetch('https://api.xposedornot.com/v1/breaches', {
+          headers: { Accept: 'application/json' }
+        });
+        if (!res.ok) return {};
+        const data = await res.json();
+        const list = data.exposedBreaches || data.breaches || [];
+        allXonBreaches = list;
+        xonBreachMap = {};
+        for (const b of list) {
+          const id = b.breachID || b.Name || b.name;
+          if (id) xonBreachMap[id] = b;
+          if (b.domain) xonBreachMap[b.domain] = b;
+        }
+        return xonBreachMap;
+      } catch {
+        return {};
+      }
+    }
+
+    // —— Live stats ——
+    async function loadLiveStats() {
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+      const hibpP = loadHibpBreaches().then(() => {
+        if (allHibpBreaches) {
+          set('statHibpBreaches', formatNum(allHibpBreaches.length));
+          const total = allHibpBreaches.reduce((s, b) => s + (b.PwnCount || 0), 0);
+          set('statHibpAccounts', formatCompact(total) + ' Accounts');
+        } else {
+          set('statHibpBreaches', '—');
+          set('statHibpAccounts', 'nicht geladen');
+        }
+      }).catch(() => {
+        set('statHibpBreaches', '—');
+        set('statHibpAccounts', 'Fehler');
+      });
+
+      const xonP = loadXonBreaches().then(() => {
+        if (allXonBreaches) {
+          set('statXonBreaches', formatNum(allXonBreaches.length));
+          const total = allXonBreaches.reduce((s, b) => s + (b.exposedRecords || 0), 0);
+          set('statXonRecords', formatCompact(total) + ' Records');
+        } else {
+          set('statXonBreaches', '—');
+          set('statXonRecords', 'nicht geladen');
+        }
+      }).catch(() => {
+        set('statXonBreaches', '—');
+        set('statXonRecords', 'Fehler');
+      });
+
+      const rbP = fetch('https://recentbreaches.com/api/index')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (!d) throw new Error('empty');
+          set('stat24h', formatNum(d.count_24h));
+          set('stat7d', '7 Tage: ' + formatNum(d.count_7d));
+          set('statRansom', formatNum(d.ransomware_7d));
+          set('statRecords7d', 'Records: ' + (d.records_leaked_7d || '—'));
+        })
+        .catch(() => {
+          set('stat24h', '—');
+          set('stat7d', '7 Tage: —');
+          set('statRansom', '—');
+          set('statRecords7d', 'nicht geladen');
+        });
+
+      await Promise.allSettled([hibpP, xonP, rbP]);
+    }
+
+    function enrichBreachName(name, hibpMap, xonMap) {
+      const key = String(name);
+      const h = hibpMap && (hibpMap[key] || hibpMap[key.replace(/\s+/g, '')]);
+      const x = xonMap && (xonMap[key] || xonMap[key.replace(/\s+/g, '')]);
+
+      if (h) {
+        const parts = [];
+        if (h.BreachDate) parts.push('Vorfall: ' + h.BreachDate.slice(0, 10));
+        if (h.AddedDate) parts.push('bei HIBP: ' + h.AddedDate.slice(0, 10));
+        if (h.PwnCount) parts.push(formatNum(h.PwnCount) + ' Accounts');
+        if (h.Domain) parts.push(h.Domain);
+        return {
+          name: h.Name || key,
+          title: h.Title || h.Name || key,
+          extra: parts.join(' · '),
+          dataClasses: h.DataClasses || [],
+          description: stripHtml(h.Description || ''),
+          logo: h.LogoPath || `https://logos.haveibeenpwned.com/${encodeURIComponent(h.Name)}.png`,
+          href: `https://haveibeenpwned.com/Breach/${encodeURIComponent(h.Name)}`,
+          pwnCount: h.PwnCount || null,
+          breachDate: h.BreachDate ? h.BreachDate.slice(0, 10) : null,
+          domain: h.Domain || null,
+          verified: h.IsVerified === true,
+          industry: (x && x.industry) || null,
+          passwordRisk: (x && x.passwordRisk) || null,
+          exposedRecords: (x && x.exposedRecords) || h.PwnCount || null
+        };
+      }
+
+      if (x) {
+        const parts = [];
+        if (x.breachedDate) parts.push('Vorfall: ' + String(x.breachedDate).slice(0, 10));
+        if (x.addedDate) parts.push('hinzugefügt: ' + String(x.addedDate).slice(0, 10));
+        if (x.exposedRecords) parts.push(formatNum(x.exposedRecords) + ' Records');
+        if (x.domain) parts.push(x.domain);
+        return {
+          name: x.breachID || key,
+          title: x.breachID || key,
+          extra: parts.join(' · '),
+          dataClasses: (x.exposedData || []).filter(Boolean),
+          description: x.exposureDescription || '',
+          logo: x.logo || `https://logos.haveibeenpwned.com/Pwned.png`,
+          href: x.referenceURL || `https://xposedornot.com`,
+          pwnCount: x.exposedRecords || null,
+          breachDate: x.breachedDate ? String(x.breachedDate).slice(0, 10) : null,
+          domain: x.domain || null,
+          verified: x.verified === true,
+          industry: x.industry || null,
+          passwordRisk: x.passwordRisk || null,
+          exposedRecords: x.exposedRecords || null
+        };
+      }
+
+      return {
+        name: key,
+        title: key,
+        extra: '',
+        dataClasses: [],
+        description: '',
+        logo: `https://logos.haveibeenpwned.com/${encodeURIComponent(key)}.png`,
+        href: `https://haveibeenpwned.com/Breach/${encodeURIComponent(key)}`,
+        pwnCount: null,
+        breachDate: null,
+        domain: null,
+        verified: null,
+        industry: null,
+        passwordRisk: null,
+        exposedRecords: null
+      };
+    }
+
+    function renderBreachCard(e) {
+      const dataTags = (e.dataClasses || []).slice(0, 12).map(c =>
+        `<span class="breach-tag data-field">${escapeHtml(c)}</span>`
+      ).join('');
+      const flags = [];
+      if (e.industry) flags.push(`<span class="breach-tag industry">${escapeHtml(e.industry)}</span>`);
+      if (e.passwordRisk && e.passwordRisk !== 'unknown') {
+        flags.push(`<span class="breach-tag risk-high">Passwort-Risiko: ${escapeHtml(e.passwordRisk)}</span>`);
+      }
+      if (e.verified) flags.push('<span class="breach-tag" style="color:var(--accent-green);border-color:rgba(52,211,153,0.35)">Verifiziert</span>');
+      if (e.pwnCount || e.exposedRecords) {
+        flags.push(`<span class="breach-tag">${formatNum(e.pwnCount || e.exposedRecords)} Accounts</span>`);
+      }
+      if (e.breachDate) flags.push(`<span class="breach-tag">${escapeHtml(e.breachDate)}</span>`);
+      if (e.domain) flags.push(`<span class="breach-tag">${escapeHtml(e.domain)}</span>`);
+
+      const desc = e.description
+        ? `<p class="breach-desc">${escapeHtml(e.description.slice(0, 420))}${e.description.length > 420 ? '…' : ''}</p>`
+        : '';
+
+      return `
+        <a class="breach-card" href="${escapeHtml(e.href)}" target="_blank" rel="noopener">
+          <img class="breach-logo" src="${escapeHtml(e.logo)}" alt="" loading="lazy"
+            onerror="this.src='https://logos.haveibeenpwned.com/Pwned.png'">
+          <div class="breach-body">
+            <div class="breach-name">${escapeHtml(e.title)}</div>
+            <div class="breach-meta">${e.extra ? escapeHtml(e.extra) : 'Details öffnen'} · Tippen für Volltext</div>
+            ${desc}
+            <div class="breach-tags">${flags.join('')}</div>
+            ${dataTags ? `<div class="data-fields-row">${dataTags}</div>` : ''}
+          </div>
+        </a>`;
+    }
+
+    async function loadBreachCatalog() {
+      const el = document.getElementById('breachCatalogResult');
+      const q = (document.getElementById('breachSearch').value || '').trim().toLowerCase();
+      el.innerHTML = '<div class="loading-box"><div class="spinner"></div><div class="loading-text">Lade Kataloge …</div></div>';
+
+      try {
+        await Promise.all([loadHibpBreaches(), loadXonBreaches()]);
+        let list = (allHibpBreaches || []).slice();
+        list.sort((a, b) => (b.AddedDate || '').localeCompare(a.AddedDate || ''));
+
+        if (q) {
+          list = list.filter(b =>
+            (b.Name || '').toLowerCase().includes(q) ||
+            (b.Title || '').toLowerCase().includes(q) ||
+            (b.Domain || '').toLowerCase().includes(q) ||
+            (b.DataClasses || []).some(d => d.toLowerCase().includes(q)) ||
+            stripHtml(b.Description || '').toLowerCase().includes(q) ||
+            ((xonBreachMap && xonBreachMap[b.Name] && xonBreachMap[b.Name].industry) || '').toLowerCase().includes(q)
+          );
+        }
+
+        const total = list.length;
+        const show = list.slice(0, 45);
+        const cards = show.map(b => renderBreachCard(enrichBreachName(b.Name, hibpBreachMap, xonBreachMap))).join('');
+
+        el.innerHTML = `
+          <div class="status-card ok" style="margin-bottom:0.75rem">
+            <div class="status-title">
+              <span class="badge badge-info">${formatNum(total)} Vorfälle${q ? ' (Filter)' : ''}</span>
+              <span class="badge badge-safe">HIBP + XposedOrNot</span>
+            </div>
+            <p class="feedback" style="margin:0">Neueste zuerst. Karten zeigen Branche, Datentypen und Risiko-Hinweise wo verfügbar.</p>
+          </div>
+          <div class="breach-grid">${cards}</div>
+          ${total > 45 ? `<p class="feedback" style="margin-top:0.75rem">Zeige 45 von ${formatNum(total)}. Filter nutzen (z. B. „Suno“ oder „Health“).</p>` : ''}
+        `;
+      } catch (err) {
+        el.innerHTML = `
+          <div class="error-box">
+            <span>🔌</span>
+            <div><strong>Katalog nicht geladen</strong><br>${escapeHtml(err.message)}</div>
+          </div>`;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadLiveStats();
+      const inp = document.getElementById('breachSearch');
+      if (inp) {
+        let t;
+        inp.addEventListener('input', () => {
+          clearTimeout(t);
+          t = setTimeout(() => { if (allHibpBreaches) loadBreachCatalog(); }, 280);
+        });
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') loadBreachCatalog(); });
+      }
+    });
+
+    // —— Email check ——
+    async function checkEmail() {
+      const input = document.getElementById('emailInput').value.trim();
+      const resultEl = document.getElementById('emailResult');
+      const btn = document.getElementById('emailBtn');
+
+      if (!input || input.length < 3 || !input.includes('@')) {
+        resultEl.className = 'result visible';
+        resultEl.innerHTML = `
+          <div class="error-box">
+            <span>⚠️</span>
+            <div>Bitte eine gültige E-Mail-Adresse eingeben.</div>
+          </div>`;
+        return;
+      }
+
+      btn.disabled = true;
+      resultEl.className = 'result visible';
+      resultEl.innerHTML = `
+        <div class="loading-box">
+          <div class="spinner"></div>
+          <div class="loading-text">Suche in mehreren Quellen …</div>
+          <div class="loading-steps">
+            <div class="loading-step active" id="step-xon"><span class="dot"></span> XposedOrNot</div>
+            <div class="loading-step active" id="step-analytics"><span class="dot"></span> Analytics (Risiko / Datentypen)</div>
+            <div class="loading-step active" id="step-hibp"><span class="dot"></span> HIBP Katalog</div>
+            <div class="loading-step active" id="step-xoncat"><span class="dot"></span> XON Katalog</div>
+          </div>
+        </div>`;
+
+      const results = { xon: null, analytics: null, xonError: null, hibpMap: {}, xonMap: {} };
+      const markStep = (id, state) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('active', 'done', 'fail');
+        el.classList.add(state);
+      };
+
+      const hibpPromise = loadHibpBreaches().then(map => {
+        results.hibpMap = map || {};
+        markStep('step-hibp', Object.keys(results.hibpMap).length ? 'done' : 'fail');
+      }).catch(() => markStep('step-hibp', 'fail'));
+
+      const xonCatPromise = loadXonBreaches().then(map => {
+        results.xonMap = map || {};
+        markStep('step-xoncat', Object.keys(results.xonMap).length ? 'done' : 'fail');
+      }).catch(() => markStep('step-xoncat', 'fail'));
+
+      const xonPromise = fetch(`https://api.xposedornot.com/v1/check-email/${encodeURIComponent(input)}`, {
+        headers: { Accept: 'application/json' }
+      })
+        .then(async res => {
+          if (!res.ok) {
+            if (res.status === 429) throw new Error('Rate-Limit erreicht – später erneut versuchen');
+            throw new Error(`HTTP ${res.status}`);
+          }
+          return res.json();
+        })
+        .then(data => { results.xon = data; markStep('step-xon', 'done'); })
+        .catch(err => { results.xonError = err.message || 'Netzwerkfehler'; markStep('step-xon', 'fail'); });
+
+      const analyticsPromise = fetch(
+        `https://api.xposedornot.com/v1/breach-analytics?email=${encodeURIComponent(input)}`,
+        { headers: { Accept: 'application/json' } }
+      )
+        .then(async res => {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(data => { results.analytics = data; markStep('step-analytics', 'done'); })
+        .catch(() => markStep('step-analytics', 'fail'));
+
+      await Promise.all([xonPromise, analyticsPromise, hibpPromise, xonCatPromise]);
+      await new Promise(r => setTimeout(r, 180));
+
+      let html = '';
+      const hibpUrl = 'https://haveibeenpwned.com/';
+      html += `
+        <div class="hibp-cta">
+          <div style="font-weight:600;font-size:0.95rem">Vollständig bei Have I Been Pwned prüfen</div>
+          <p class="feedback" style="margin:0;opacity:0.9">
+            HIBP hat oft neuere / andere Leaks (z. B. <strong>Suno</strong>). Kostenlose APIs decken das nicht 1:1 ab.
+          </p>
+          <a class="btn-hibp" href="${hibpUrl}" target="_blank" rel="noopener">→ haveibeenpwned.com öffnen</a>
+        </div>`;
+
+      if (results.xonError) {
+        html += `
+          <div class="status-card fail">
+            <div class="status-title">
+              <span class="badge badge-danger">XposedOrNot</span>
+              <span style="color:var(--accent-red);font-size:0.85rem">fehlgeschlagen</span>
+            </div>
+            <p class="feedback" style="margin:0">${escapeHtml(results.xonError)}</p>
+          </div>`;
+      } else if (results.xon) {
+        const xon = results.xon;
+        const isNotFound = xon.Error === 'Not found' || xon.error === 'Not found';
+        const isOk = xon.status === 'success' || isNotFound;
+
+        if (isOk) {
+          let breaches = xon.breaches || [];
+          if (breaches.length && Array.isArray(breaches[0])) breaches = breaches.flat();
+          breaches = [...new Set(breaches.filter(Boolean))];
+
+          let riskHtml = '';
+          let dataHtml = '';
+          try {
+            const risk = results.analytics?.BreachMetrics?.risk?.[0];
+            if (risk) {
+              const score = risk.risk_score ?? '';
+              const label = risk.risk_label || '';
+              const badgeCls = score >= 70 ? 'badge-crit' : score >= 40 ? 'badge-warn' : 'badge-info';
+              riskHtml = `
+                <div style="margin:0.5rem 0 0.35rem;display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center">
+                  <span class="badge ${badgeCls}">Risiko: ${escapeHtml(label)} · Score ${escapeHtml(String(score))}</span>
+                </div>`;
+            }
+            const xd = results.analytics?.BreachMetrics?.xposed_data;
+            if (xd && Array.isArray(xd)) {
+              const fields = [];
+              const walk = (nodes) => {
+                for (const n of nodes || []) {
+                  if (n.name && String(n.name).startsWith('data_')) {
+                    fields.push(String(n.name).replace(/^data_/, ''));
+                  }
+                  if (n.children) walk(n.children);
+                }
+              };
+              walk(xd);
+              const uniq = [...new Set(fields)].slice(0, 20);
+              if (uniq.length) {
+                dataHtml = `<div class="data-fields-row" style="margin-top:0.5rem">
+                  ${uniq.map(f => `<span class="breach-tag data-field">${escapeHtml(f)}</span>`).join('')}
+                </div>
+                <p class="feedback" style="margin-top:0.35rem;font-size:0.78rem">Betroffene Datenfelder (Aggregation aus Analytics)</p>`;
+              }
+            }
+          } catch (_) {}
+
+          if (breaches.length > 0) {
+            const show = breaches.slice(0, 40);
+            const more = breaches.length - show.length;
+            const cards = show.map(raw =>
+              renderBreachCard(enrichBreachName(String(raw), results.hibpMap, results.xonMap))
+            ).join('');
+
+            html += `
+              <div class="status-card danger">
+                <div class="status-title">
+                  <span class="badge badge-danger">${breaches.length} Treffer in kostenlosen Quellen</span>
+                </div>
+                ${riskHtml}
+                ${dataHtml}
+                <div class="breach-grid">${cards}</div>
+                ${more > 0 ? `<p class="feedback" style="margin-top:0.55rem">+${more} weitere – siehe XposedOrNot / HIBP</p>` : ''}
+              </div>`;
+          } else {
+            html += `
+              <div class="notice-box">
+                In den <strong>kostenlosen</strong> APIs (XposedOrNot) kein Treffer.
+                Das bedeutet <strong>nicht</strong>, dass die Adresse sicher ist – HIBP kann zusätzliche Leaks haben.
+              </div>
+              <div class="status-card ok">
+                <div class="status-title"><span class="badge badge-safe">XposedOrNot · Keine Treffer</span></div>
+                ${riskHtml}${dataHtml}
+              </div>`;
+          }
+        } else {
+          html += `
+            <div class="status-card fail">
+              <div class="status-title">
+                <span class="badge badge-danger">XposedOrNot</span>
+                <span style="color:var(--accent-red);font-size:0.85rem">unerwartete Antwort</span>
+              </div>
+              <p class="feedback" style="margin:0">${escapeHtml(String(xon.Error || xon.error || 'unbekannt'))}</p>
+            </div>`;
+        }
+      }
+
+      html += `
+        <p class="feedback" style="margin-top:1rem;font-size:0.78rem;opacity:0.85">
+          Quellen:
+          <a href="https://haveibeenpwned.com" target="_blank" style="color:var(--cyan)">HIBP</a> ·
+          <a href="https://xposedornot.com" target="_blank" style="color:var(--cyan)">XposedOrNot</a>
+          · Keine Passwörter/Klartext
+        </p>`;
+
+      resultEl.innerHTML = html;
+      btn.disabled = false;
+    }
+
+    // —— Domain multi-email ——
+    function fillDomainFromInput() {
+      const ta = document.getElementById('domainEmails');
+      const first = (ta.value || '').split(/[\n,;\s]+/).find(s => s.includes('@'));
+      let domain = '';
+      if (first) domain = first.split('@')[1];
+      else {
+        domain = prompt('Domain eingeben (z. B. firma.de):', 'beispiel.de') || '';
+      }
+      domain = domain.trim().toLowerCase().replace(/^@/, '');
+      if (!domain) return;
+      const locals = ['info', 'admin', 'support', 'kontakt', 'office', 'hello', 'mail', 'webmaster'];
+      ta.value = locals.map(l => l + '@' + domain).join('\n');
+    }
+
+    async function checkDomainEmails() {
+      const raw = document.getElementById('domainEmails').value || '';
+      const emails = [...new Set(
+        raw.split(/[\n,;]+/).map(s => s.trim().toLowerCase()).filter(s => s.includes('@') && s.length > 4)
+      )].slice(0, 12);
+
+      const resultEl = document.getElementById('domainResult');
+      const btn = document.getElementById('domainBtn');
+
+      if (!emails.length) {
+        resultEl.className = 'result visible';
+        resultEl.innerHTML = `
+          <div class="error-box">
+            <span>⚠️</span>
+            <div>Mindestens eine E-Mail-Adresse eingeben (eine pro Zeile, max. 12).</div>
+          </div>`;
+        return;
+      }
+
+      btn.disabled = true;
+      resultEl.className = 'result visible';
+      resultEl.innerHTML = `
+        <div class="loading-box">
+          <div class="spinner"></div>
+          <div class="loading-text">Prüfe ${emails.length} Adressen …</div>
+        </div>`;
+
+      await Promise.all([loadHibpBreaches(), loadXonBreaches()]);
+
+      const blocks = [];
+      let foundTotal = 0;
+
+      for (let i = 0; i < emails.length; i++) {
+        const email = emails[i];
+        try {
+          const res = await fetch(
+            `https://api.xposedornot.com/v1/check-email/${encodeURIComponent(email)}`,
+            { headers: { Accept: 'application/json' } }
+          );
+          if (res.status === 429) {
+            blocks.push(`
+              <div class="domain-result-block">
+                <div class="status-title"><span class="badge badge-warn">${escapeHtml(email)}</span></div>
+                <p class="feedback" style="margin:0">Rate-Limit – Pause und später erneut.</p>
+              </div>`);
+            await new Promise(r => setTimeout(r, 1500));
+            continue;
+          }
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          let breaches = data.breaches || [];
+          if (breaches.length && Array.isArray(breaches[0])) breaches = breaches.flat();
+          breaches = [...new Set(breaches.filter(Boolean))];
+
+          if (breaches.length) {
+            foundTotal += breaches.length;
+            const cards = breaches.slice(0, 8).map(b =>
+              renderBreachCard(enrichBreachName(String(b), hibpBreachMap, xonBreachMap))
+            ).join('');
+            blocks.push(`
+              <div class="domain-result-block">
+                <div class="status-title">
+                  <span class="badge badge-danger">${escapeHtml(email)}</span>
+                  <span class="badge badge-danger">${breaches.length} Treffer</span>
+                </div>
+                <div class="breach-grid">${cards}</div>
+              </div>`);
+          } else {
+            blocks.push(`
+              <div class="domain-result-block">
+                <div class="status-title">
+                  <span class="badge badge-safe">${escapeHtml(email)}</span>
+                  <span class="badge badge-safe">Keine Treffer (Free-API)</span>
+                </div>
+              </div>`);
+          }
+        } catch (err) {
+          blocks.push(`
+            <div class="domain-result-block">
+              <div class="status-title"><span class="badge badge-warn">${escapeHtml(email)}</span></div>
+              <p class="feedback" style="margin:0">${escapeHtml(err.message)}</p>
+            </div>`);
+        }
+        if (i < emails.length - 1) await new Promise(r => setTimeout(r, 450));
+      }
+
+      resultEl.innerHTML = `
+        <div class="status-card ${foundTotal ? 'danger' : 'ok'}" style="margin-bottom:0.85rem">
+          <div class="status-title">
+            <span class="badge ${foundTotal ? 'badge-danger' : 'badge-safe'}">
+              ${emails.length} Adressen · ${foundTotal ? foundTotal + ' Leak-Treffer gesamt' : 'keine Treffer in Free-API'}
+            </span>
+          </div>
+          <p class="feedback" style="margin:0">Für vollständige Domain-Abdeckung HIBP oder verifiziertes XposedOrNot Domain-Monitoring nutzen.</p>
+        </div>
+        ${blocks.join('')}`;
+      btn.disabled = false;
+    }
+
+    // —— Pastes / analytics proxy ——
+    async function checkPastesProxy() {
+      const email = document.getElementById('pasteEmail').value.trim();
+      const resultEl = document.getElementById('pasteResult');
+      if (!email.includes('@')) {
+        resultEl.className = 'result visible';
+        resultEl.innerHTML = `
+          <div class="error-box"><span>⚠️</span><div>Bitte eine E-Mail eingeben.</div></div>`;
+        return;
+      }
+      resultEl.className = 'result visible';
+      resultEl.innerHTML = `
+        <div class="loading-box"><div class="spinner"></div><div class="loading-text">Analytics laden …</div></div>`;
+
+      try {
+        const res = await fetch(
+          `https://api.xposedornot.com/v1/breach-analytics?email=${encodeURIComponent(email)}`,
+          { headers: { Accept: 'application/json' } }
+        );
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const risk = data?.BreachMetrics?.risk?.[0];
+        const fields = [];
+        const walk = (nodes) => {
+          for (const n of nodes || []) {
+            if (n.name && String(n.name).startsWith('data_')) fields.push(String(n.name).replace(/^data_/, ''));
+            if (n.children) walk(n.children);
+          }
+        };
+        walk(data?.BreachMetrics?.xposed_data);
+
+        const uniq = [...new Set(fields)];
+        const pasteLike = uniq.filter(f =>
+          /message|paste|chat|messenger|private|snippet|document/i.test(f)
+        );
+
+        resultEl.innerHTML = `
+          <div class="notice-box">
+            Echte HIBP-Pastes (Pastebin-Snippets) sind nur über die kostenpflichtige HIBP-API verfügbar.
+            Unten: Analytics-Datentypen von XposedOrNot – inkl. möglicher Text-/Message-Exposures.
+          </div>
+          <div class="status-card ${risk && risk.risk_score >= 40 ? 'danger' : 'ok'}">
+            <div class="status-title">
+              ${risk
+                ? `<span class="badge ${risk.risk_score >= 70 ? 'badge-crit' : risk.risk_score >= 40 ? 'badge-warn' : 'badge-info'}">
+                    Risiko: ${escapeHtml(risk.risk_label || '')} · ${escapeHtml(String(risk.risk_score))}
+                  </span>`
+                : `<span class="badge badge-info">Analytics geladen</span>`}
+            </div>
+            ${pasteLike.length
+              ? `<p class="feedback"><strong>Text-/Message-nahe Felder:</strong></p>
+                 <div class="data-fields-row">${pasteLike.map(f => `<span class="breach-tag data-field">${escapeHtml(f)}</span>`).join('')}</div>`
+              : `<p class="feedback" style="margin:0">Keine expliziten Paste-/Message-Felder in den Analytics.</p>`}
+            ${uniq.length
+              ? `<p class="feedback" style="margin-top:0.6rem"><strong>Alle erkannten Datentypen:</strong></p>
+                 <div class="data-fields-row">${uniq.slice(0, 30).map(f => `<span class="breach-tag">${escapeHtml(f)}</span>`).join('')}</div>`
+              : ''}
+          </div>
+          <p class="feedback" style="margin-top:0.85rem;font-size:0.78rem">
+            Für echte Pastes:
+            <a href="https://haveibeenpwned.com" target="_blank" style="color:var(--cyan)">haveibeenpwned.com</a>
+          </p>`;
+      } catch (err) {
+        resultEl.innerHTML = `
+          <div class="error-box">
+            <span>🔌</span>
+            <div><strong>Analytics fehlgeschlagen</strong><br>${escapeHtml(err.message)}</div>
+          </div>`;
+      }
+    }
+
+    // —— Password ——
+    async function checkPassword() {
+      const pw = document.getElementById('pwInput').value;
+      const resultEl = document.getElementById('pwResult');
+      const btn = document.getElementById('pwBtn');
+
+      if (!pw) {
+        resultEl.className = 'result visible';
+        resultEl.innerHTML = `
+          <div class="error-box"><span>⚠️</span><div>Bitte ein Passwort eingeben.</div></div>`;
+        return;
+      }
+
+      btn.disabled = true;
+      resultEl.className = 'result visible';
+      resultEl.innerHTML = `
+        <div class="loading-box">
+          <div class="spinner"></div>
+          <div class="loading-text">Prüfe Stärke &amp; Leaks …</div>
+          <div class="loading-steps">
+            <div class="loading-step active" id="step-zx"><span class="dot"></span> Stärke (zxcvbn)</div>
+            <div class="loading-step active" id="step-hibp-pw"><span class="dot"></span> Leak-Check (HIBP)</div>
+          </div>
+        </div>`;
+
+      try {
+        const strength = zxcvbn(pw);
+        const score = strength.score;
+        const scoreLabels = ['Sehr schwach', 'Schwach', 'Mittel', 'Stark', 'Sehr stark'];
+        const scoreColors = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee'];
+        const scoreBadge = score <= 1 ? 'badge-danger' : score === 2 ? 'badge-warn' : 'badge-safe';
+
+        const stepZx = document.getElementById('step-zx');
+        if (stepZx) { stepZx.classList.remove('active'); stepZx.classList.add('done'); }
+
+        const hash = await sha1(pw);
+        const prefix = hash.substring(0, 5);
+        const suffix = hash.substring(5);
+
+        const hibpRes = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+          headers: { 'Add-Padding': 'true' }
+        });
+        if (!hibpRes.ok) throw new Error('HIBP nicht erreichbar (HTTP ' + hibpRes.status + ')');
+
+        const text = await hibpRes.text();
+        let timesPwned = 0;
+        for (const line of text.split('\n')) {
+          const [hashSuffix, count] = line.trim().split(':');
+          if (hashSuffix === suffix) {
+            timesPwned = parseInt(count, 10);
+            break;
+          }
+        }
+
+        const stepHibp = document.getElementById('step-hibp-pw');
+        if (stepHibp) { stepHibp.classList.remove('active'); stepHibp.classList.add('done'); }
+
+        await new Promise(r => setTimeout(r, 180));
+
+        const feedback = [];
+        if (strength.feedback.warning) feedback.push(strength.feedback.warning);
+        if (strength.feedback.suggestions?.length) feedback.push(...strength.feedback.suggestions);
+        const crackTime = strength.crack_times_display.offline_slow_hashing_1e4_per_second || 'unbekannt';
+
+        resultEl.innerHTML = `
+          <div class="status-card ${timesPwned > 0 ? 'danger' : 'ok'}">
+            <div class="status-title" style="flex-wrap:wrap;gap:0.4rem">
+              <span class="badge ${scoreBadge}">Stärke: ${scoreLabels[score]} (${score}/4)</span>
+              ${timesPwned > 0
+                ? `<span class="badge badge-danger">In ${formatNum(timesPwned)} Leaks</span>`
+                : `<span class="badge badge-safe">Nicht in bekannten Leaks</span>`}
+            </div>
+            <div class="score-bar">
+              <div class="score-fill" style="width:${(score + 1) * 20}%;background:${scoreColors[score]}"></div>
+            </div>
+            <p class="feedback">Geschätzte Offline-Knackzeit: <strong>${escapeHtml(crackTime)}</strong></p>
+            ${feedback.length ? `<p class="feedback" style="margin-top:0.35rem">${feedback.map(f => '• ' + escapeHtml(f)).join('<br>')}</p>` : ''}
+            ${timesPwned > 0 ? `<p class="feedback" style="margin-top:0.55rem;color:var(--accent-red)"><strong>Dieses Passwort wurde bereits geleakt.</strong> Sofort ändern und nirgends wiederverwenden!</p>` : ''}
+          </div>
+          <p class="feedback" style="margin-top:0.85rem;font-size:0.78rem;opacity:0.85">
+            Stärke: zxcvbn · Leaks:
+            <a href="https://haveibeenpwned.com/Passwords" target="_blank" style="color:var(--cyan)">Have I Been Pwned</a> (k-Anonymity)
+          </p>`;
+      } catch (err) {
+        const stepHibp = document.getElementById('step-hibp-pw');
+        if (stepHibp) { stepHibp.classList.remove('active'); stepHibp.classList.add('fail'); }
+        resultEl.innerHTML = `
+          <div class="error-box">
+            <span>🔌</span>
+            <div>
+              <strong>Leak-Check fehlgeschlagen</strong><br>
+              ${escapeHtml(err.message)}<br>
+              <span style="opacity:0.85;font-size:0.85rem">Die Stärke-Prüfung läuft lokal weiter.</span>
+            </div>
+          </div>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('emailInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkEmail();
+    });
+    document.getElementById('pwInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkPassword();
+    });
+  </script>
+</body>
+</html>
