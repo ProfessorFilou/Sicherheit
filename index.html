@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breach Checker · ProfessorFilou</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/zxcvbn@4.4.2/dist/zxcvbn.js"></script>
+  <style>
+    :root {
+      --bg-dark: #0a0e17;
+      --bg-card: rgba(20, 25, 40, 0.7);
+      --bg-card-hover: rgba(30, 40, 60, 0.85);
+      --border: rgba(100, 140, 255, 0.15);
+      --border-glow: rgba(100, 160, 255, 0.4);
+      --text: #e8eef8;
+      --text-muted: #8a9bb5;
+      --accent-blue: #4facfe;
+      --accent-purple: #a78bfa;
+      --accent-pink: #f472b6;
+      --accent-green: #34d399;
+      --accent-red: #f87171;
+      --accent-yellow: #fbbf24;
+      --gradient: linear-gradient(135deg, #4facfe 0%, #a78bfa 50%, #f472b6 100%);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Particle background */
+    .particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 20%, rgba(79, 172, 254, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 80% 70%, rgba(167, 139, 250, 0.07) 0%, transparent 50%),
+        radial-gradient(ellipse 50% 30% at 50% 90%, rgba(244, 114, 182, 0.05) 0%, transparent 50%);
+    }
+
+    .star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: white;
+      border-radius: 50%;
+      opacity: 0.3;
+      animation: twinkle 4s infinite ease-in-out;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 0.6; }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      padding-top: 1rem;
+    }
+
+    .logo {
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 700;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+    }
+
+    .tagline {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 400;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin-bottom: 1.5rem;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--accent-blue); }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 1.75rem;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      padding: 0.6rem 1.25rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.25s;
+      backdrop-filter: blur(12px);
+    }
+    .tab:hover {
+      border-color: var(--border-glow);
+      color: var(--text);
+    }
+    .tab.active {
+      background: linear-gradient(135deg, rgba(79, 172, 254, 0.2), rgba(167, 139, 250, 0.2));
+      border-color: var(--accent-blue);
+      color: var(--text);
+      box-shadow: 0 0 20px rgba(79, 172, 254, 0.15);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 1.75rem;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      margin-bottom: 1.5rem;
+      transition: border-color 0.3s;
+    }
+    .card:hover { border-color: var(--border-glow); }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-desc {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
+    }
+
+    /* Form */
+    .input-group {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.85rem 1.1rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      background: rgba(10, 14, 23, 0.6);
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.15);
+    }
+    input::placeholder { color: var(--text-muted); }
+
+    .btn {
+      padding: 0.85rem 1.5rem;
+      border-radius: 0.75rem;
+      border: none;
+      background: var(--gradient);
+      color: white;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+      white-space: nowrap;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(79, 172, 254, 0.35);
+    }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Results */
+    .result {
+      margin-top: 1.25rem;
+      padding: 1.1rem;
+      border-radius: 0.85rem;
+      background: rgba(10, 14, 23, 0.5);
+      border: 1px solid var(--border);
+      display: none;
+    }
+    .result.visible { display: block; animation: fadeIn 0.3s ease; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-safe { background: rgba(52, 211, 153, 0.15); color: var(--accent-green); }
+    .badge-warn { background: rgba(251, 191, 36, 0.15); color: var(--accent-yellow); }
+    .badge-danger { background: rgba(248, 113, 113, 0.15); color: var(--accent-red); }
+    .badge-info { background: rgba(79, 172, 254, 0.15); color: var(--accent-blue); }
+
+    .source-list {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+    }
+    .source-item {
+      padding: 0.3rem 0.7rem;
+      border-radius: 0.5rem;
+      background: rgba(100, 140, 255, 0.1);
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .score-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.08);
+      margin: 0.75rem 0 0.4rem;
+      overflow: hidden;
+    }
+    .score-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .feedback {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-top: 0.5rem;
+    }
+
+    .loading-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 1.5rem 1rem;
+      text-align: center;
+    }
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .loading-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      width: 100%;
+      max-width: 280px;
+      margin-top: 0.25rem;
+    }
+    .loading-step {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      padding: 0.35rem 0.6rem;
+      border-radius: 0.5rem;
+      background: rgba(255,255,255,0.03);
+    }
+    .loading-step.done { color: var(--accent-green); }
+    .loading-step.fail { color: var(--accent-red); }
+    .loading-step .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .loading-step.done .dot { background: var(--accent-green); }
+    .loading-step.fail .dot { background: var(--accent-red); }
+    .loading-step.active .dot {
+      background: var(--accent-blue);
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .error-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      background: rgba(248, 113, 113, 0.08);
+      border: 1px solid rgba(248, 113, 113, 0.25);
+      color: var(--accent-red);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+    .error-box .icon { font-size: 1.2rem; flex-shrink: 0; }
+
+    .status-card {
+      padding: 0.9rem 1rem;
+      border-radius: 0.75rem;
+      margin-bottom: 0.75rem;
+      border: 1px solid var(--border);
+      background: rgba(10, 14, 23, 0.4);
+    }
+    .status-card:last-child { margin-bottom: 0; }
+    .status-card.ok { border-color: rgba(52, 211, 153, 0.25); }
+    .status-card.warn { border-color: rgba(251, 191, 36, 0.3); }
+    .status-card.danger { border-color: rgba(248, 113, 113, 0.3); }
+    .status-card.fail { border-color: rgba(248, 113, 113, 0.2); background: rgba(248, 113, 113, 0.05); }
+
+    .status-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 0.4rem;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
+    footer a {
+      color: var(--accent-blue);
+      text-decoration: none;
+    }
+    footer a:hover { text-decoration: underline; }
+
+    .attribution {
+      margin-top: 0.75rem;
+      font-size: 0.75rem;
+      opacity: 0.8;
+    }
+
+    /* Panel visibility */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    @media (max-width: 600px) {
+      .input-group { flex-direction: column; }
+      .btn { width: 100%; }
+      .card { padding: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="particles" id="particles"></div>
+
+  <div class="container">
+    <a href="https://professorfilou.de" class="back-link">← Zurück zu ProfessorFilou</a>
+
+    <header>
+      <h1 class="logo">Breach Checker</h1>
+      <p class="tagline">Kostenlos E-Mails, Usernames & Passwörter auf Leaks prüfen</p>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="email">E-Mail / Username</button>
+      <button class="tab" data-tab="password">Passwort-Check</button>
+    </div>
+
+    <!-- EMAIL / USERNAME PANEL -->
+    <div class="panel active" id="panel-email">
+      <div class="card">
+        <div class="card-title">
+          <span>🔍</span> E-Mail oder Username prüfen
+        </div>
+        <p class="card-desc">
+          Prüft parallel gegen <strong>LeakCheck</strong> und <strong>XposedOrNot</strong> (beide kostenlos).
+          Zeigt, in welchen Breaches die Adresse vorkam – ohne Passwörter preiszugeben.
+        </p>
+        <div class="input-group">
+          <input type="text" id="emailInput" placeholder="email@beispiel.de oder username" autocomplete="off">
+          <button class="btn" id="emailBtn" onclick="checkEmail()">Prüfen</button>
+        </div>
+        <div class="result" id="emailResult"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>ℹ️</span> Quellen & Limits
+        </div>
+        <p class="card-desc" style="margin-bottom:0">
+          • <strong>XposedOrNot</strong> – direkt im Browser, ca. 100 Anfragen/Tag · <em>Hauptquelle</em><br>
+          • <strong>LeakCheck</strong> – optional (braucht PHP-Proxy; auf GitHub Pages nicht möglich)<br>
+          • Passwort-Check: HIBP + zxcvbn (funktioniert immer)<br>
+          • Keine Passwörter/Klartext · keine Garantie auf Vollständigkeit
+        </p>
+      </div>
+    </div>
+
+    <!-- PASSWORD PANEL -->
+    <div class="panel" id="panel-password">
+      <div class="card">
+        <div class="card-title">
+          <span>🔐</span> Passwort-Stärke & Leak-Check
+        </div>
+        <p class="card-desc">
+          Prüft die Stärke lokal mit <strong>zxcvbn</strong> und ob das Passwort bereits in bekannten Leaks vorkam 
+          (Have I Been Pwned – k-Anonymity, das volle Passwort verlässt nie deinen Browser).
+        </p>
+        <div class="input-group">
+          <input type="password" id="pwInput" placeholder="Passwort eingeben (wird nicht gespeichert)" autocomplete="off">
+          <button class="btn" id="pwBtn" onclick="checkPassword()">Prüfen</button>
+        </div>
+        <div style="margin-top:0.6rem">
+          <label style="font-size:0.8rem;color:var(--text-muted);cursor:pointer">
+            <input type="checkbox" id="showPw" onchange="togglePwVisibility()"> Passwort anzeigen
+          </label>
+        </div>
+        <div class="result" id="pwResult"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>🛡️</span> Datenschutz
+        </div>
+        <p class="card-desc" style="margin-bottom:0">
+          Das Passwort wird <strong>nur lokal</strong> mit zxcvbn bewertet. 
+          Für den Leak-Check wird lediglich der SHA-1-Hash-Prefix (erste 5 Zeichen) an HIBP gesendet. 
+          Das volle Passwort und der komplette Hash bleiben in deinem Browser.
+        </p>
+      </div>
+    </div>
+
+    <footer>
+      <p>Ein Projekt im Stil von <a href="https://professorfilou.de" target="_blank">ProfessorFilou.de</a></p>
+      <p class="attribution">
+        Datenquellen: <a href="https://leakcheck.io" target="_blank">LeakCheck</a> · 
+        <a href="https://xposedornot.com" target="_blank">XposedOrNot</a> · 
+        <a href="https://haveibeenpwned.com" target="_blank">Have I Been Pwned</a> (Pwned Passwords) · 
+        zxcvbn (Dropbox)
+      </p>
+      <p style="margin-top:0.5rem;opacity:0.7">
+        Powered by LeakCheck &amp; XposedOrNot · Keine Garantie auf Vollständigkeit · Nur zu Bildungs- &amp; Selbstschutz-Zwecken
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    // Stars
+    (function createStars() {
+      const container = document.getElementById('particles');
+      for (let i = 0; i < 60; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 4 + 's';
+        star.style.width = star.style.height = (Math.random() * 2 + 1) + 'px';
+        container.appendChild(star);
+      }
+    })();
+
+    // Tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    function togglePwVisibility() {
+      const input = document.getElementById('pwInput');
+      input.type = document.getElementById('showPw').checked ? 'text' : 'password';
+    }
+
+    // SHA-1 for HIBP (Web Crypto)
+    async function sha1(str) {
+      const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+
+    // ===== EMAIL / USERNAME CHECK (LeakCheck + XposedOrNot) =====
+    async function checkEmail() {
+      const input = document.getElementById('emailInput').value.trim();
+      const resultEl = document.getElementById('emailResult');
+      const btn = document.getElementById('emailBtn');
+
+      if (!input || input.length < 3) {
+        resultEl.className = 'result visible';
+        resultEl.innerHTML = `
+          <div class="error-box">
+            <span class="icon">⚠️</span>
+            <div>Bitte mindestens 3 Zeichen eingeben.</div>
+          </div>`;
+        return;
+      }
+
+      const isEmail = input.includes('@');
+      btn.disabled = true;
+      resultEl.className = 'result visible';
+
+      // Progressive loading UI – XposedOrNot first (reliable CORS)
+      resultEl.innerHTML = `
+        <div class="loading-box">
+          <div class="spinner"></div>
+          <div class="loading-text">Suche läuft …</div>
+          <div class="loading-steps">
+            ${isEmail ? `<div class="loading-step active" id="step-xon">
+              <span class="dot"></span> XposedOrNot
+            </div>` : ''}
+            <div class="loading-step active" id="step-lc">
+              <span class="dot"></span> LeakCheck
+            </div>
+          </div>
+        </div>`;
+
+      const results = { leakcheck: null, xon: null, lcError: null, xonError: null };
+
+      const markStep = (id, state) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('active', 'done', 'fail');
+        el.classList.add(state);
+      };
+
+      // XposedOrNot – has CORS *, works from browser
+      const xonPromise = isEmail
+        ? fetch(`https://api.xposedornot.com/v1/check-email/${encodeURIComponent(input)}`, {
+            headers: { 'Accept': 'application/json' }
+          })
+            .then(async res => {
+              if (!res.ok) {
+                if (res.status === 429) throw new Error('Rate-Limit (ca. 100/Tag) – später erneut');
+                throw new Error(`HTTP ${res.status}`);
+              }
+              return res.json();
+            })
+            .then(data => {
+              results.xon = data;
+              markStep('step-xon', 'done');
+            })
+            .catch(err => {
+              results.xonError = err.message || 'Netzwerkfehler';
+              markStep('step-xon', 'fail');
+            })
+        : Promise.resolve();
+
+      // LeakCheck – needs same-origin proxy (api-proxy.php on your server)
+      // Tries: 1) ./api-proxy.php  2) direct (only works if CORS ever enabled)
+      const fetchLeakCheck = async () => {
+        const tryUrls = [
+          `./api-proxy.php?q=${encodeURIComponent(input)}`,
+          `api-proxy.php?q=${encodeURIComponent(input)}`,
+        ];
+        for (const url of tryUrls) {
+          try {
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (data && (data.success === true || data.success === false || data.sources)) {
+              return data;
+            }
+          } catch (_) { /* next */ }
+        }
+        // Last resort: direct (will fail with CORS in browsers)
+        try {
+          const res = await fetch(
+            `https://leakcheck.io/api/public?check=${encodeURIComponent(input)}`,
+            { headers: { 'Accept': 'application/json' } }
+          );
+          if (res.ok) return await res.json();
+        } catch (_) {}
+        throw new Error('Proxy fehlt (api-proxy.php) oder CORS blockiert');
+      };
+
+      const leakPromise = fetchLeakCheck()
+        .then(data => {
+          results.leakcheck = data;
+          markStep('step-lc', 'done');
+        })
+        .catch(err => {
+          results.lcError = err.message || 'Nicht erreichbar';
+          markStep('step-lc', 'fail');
+        });
+
+      await Promise.all([xonPromise, leakPromise]);
+      await new Promise(r => setTimeout(r, 250));
+
+      let html = '';
+      let anyFound = false;
+      let anySuccess = false;
+
+      // --- XposedOrNot first (main source) ---
+      // API: { status:"success", breaches:[...] } OR { Error:"Not found" } when empty
+      if (isEmail) {
+        if (results.xonError) {
+          html += `
+            <div class="status-card fail">
+              <div class="status-title">
+                <span class="badge badge-danger">XposedOrNot</span>
+                <span style="color:var(--accent-red);font-size:0.85rem">fehlgeschlagen</span>
+              </div>
+              <p class="feedback" style="margin:0">${escapeHtml(results.xonError)}</p>
+            </div>`;
+        } else if (results.xon) {
+          const xon = results.xon;
+          const isNotFound = xon.Error === 'Not found' || xon.error === 'Not found';
+          const isOk = xon.status === 'success' || isNotFound;
+
+          if (isOk) {
+            anySuccess = true;
+            let breaches = xon.breaches || [];
+            if (breaches.length && Array.isArray(breaches[0])) breaches = breaches.flat();
+            breaches = [...new Set(breaches.filter(Boolean))];
+
+            if (breaches.length > 0) {
+              anyFound = true;
+              const show = breaches.slice(0, 48);
+              const more = breaches.length - show.length;
+              const sourcesHtml = show.map(name =>
+                `<li class="source-item">${escapeHtml(String(name))}</li>`
+              ).join('') + (more > 0 ? `<li class="source-item" style="opacity:0.7">+${more} weitere</li>` : '');
+              html += `
+                <div class="status-card danger">
+                  <div class="status-title">
+                    <span class="badge badge-danger">XposedOrNot · ${breaches.length} Treffer</span>
+                  </div>
+                  <p class="feedback" style="margin-bottom:0.35rem">Gefunden in diesen bekannten Breaches:</p>
+                  <ul class="source-list">${sourcesHtml}</ul>
+                </div>`;
+            } else {
+              html += `
+                <div class="status-card ok">
+                  <div class="status-title">
+                    <span class="badge badge-safe">XposedOrNot · Keine Treffer</span>
+                  </div>
+                  <p class="feedback" style="margin:0">In der XposedOrNot-Datenbank kein Eintrag für diese E-Mail.</p>
+                </div>`;
+            }
+          } else {
+            html += `
+              <div class="status-card fail">
+                <div class="status-title">
+                  <span class="badge badge-danger">XposedOrNot</span>
+                  <span style="color:var(--accent-red);font-size:0.85rem">unerwartete Antwort</span>
+                </div>
+                <p class="feedback" style="margin:0">${escapeHtml(String(xon.Error || xon.error || 'unbekannt'))}</p>
+              </div>`;
+          }
+        }
+      }
+
+      // --- LeakCheck ---
+      if (results.lcError) {
+        html += `
+          <div class="status-card fail">
+            <div class="status-title">
+              <span class="badge badge-warn">LeakCheck</span>
+              <span style="color:var(--accent-yellow);font-size:0.85rem">nicht verfügbar</span>
+            </div>
+            <p class="feedback" style="margin:0">${escapeHtml(results.lcError)}. Auf <strong>GitHub Pages</strong> läuft kein PHP – LeakCheck braucht einen anderen Host oder bleibt optional. XposedOrNot reicht für die meisten Checks.</p>
+          </div>`;
+      } else if (results.leakcheck && results.leakcheck.success) {
+        anySuccess = true;
+        const data = results.leakcheck;
+        if (data.found > 0 && data.sources && data.sources.length) {
+          anyFound = true;
+          const sourcesHtml = data.sources.map(s =>
+            `<li class="source-item">${escapeHtml(s.name)}${s.date ? ' · ' + escapeHtml(s.date) : ''}</li>`
+          ).join('');
+          const fields = (data.fields || []).map(f => escapeHtml(f)).join(', ') || 'unbekannt';
+          html += `
+            <div class="status-card danger">
+              <div class="status-title">
+                <span class="badge badge-danger">LeakCheck · ${data.found} Treffer</span>
+              </div>
+              <p class="feedback"><strong>Datentypen:</strong> ${fields}</p>
+              <ul class="source-list">${sourcesHtml}</ul>
+            </div>`;
+        } else {
+          html += `
+            <div class="status-card ok">
+              <div class="status-title">
+                <span class="badge badge-safe">LeakCheck · Keine Treffer</span>
+              </div>
+              <p class="feedback" style="margin:0">In den öffentlichen LeakCheck-Quellen kein Eintrag.</p>
+            </div>`;
+        }
+      }
+
+      // Global message only if NOTHING worked
+      if (!anySuccess && (results.lcError || results.xonError)) {
+        html = `
+          <div class="error-box">
+            <span class="icon">🔌</span>
+            <div>
+              <strong>Keine nutzbare API-Antwort</strong><br>
+              ${results.xonError ? 'XposedOrNot: ' + escapeHtml(results.xonError) + '<br>' : ''}
+              ${results.lcError ? 'LeakCheck: ' + escapeHtml(results.lcError) : ''}
+              <br><span style="opacity:0.85;font-size:0.85rem">Netzwerk, Adblocker oder Rate-Limit prüfen und erneut versuchen.</span>
+            </div>
+          </div>` + html;
+      } else if (!anyFound && anySuccess) {
+        html = `
+          <div class="status-card ok" style="margin-bottom:0.9rem">
+            <div class="status-title">
+              <span class="badge badge-safe">Alles klar</span>
+            </div>
+            <p class="feedback" style="margin:0">In den erreichbaren Quellen keine Treffer. Das heißt nicht, dass die Adresse nie geleakt wurde.</p>
+          </div>` + html;
+      }
+
+      html += `
+        <p class="feedback" style="margin-top:1rem;font-size:0.8rem;opacity:0.85">
+          Quellen: <a href="https://xposedornot.com" target="_blank" style="color:var(--accent-blue)">XposedOrNot</a>
+          · <a href="https://leakcheck.io" target="_blank" style="color:var(--accent-blue)">LeakCheck</a>
+          · Keine Passwörter oder Klartext-Daten
+        </p>`;
+
+      resultEl.innerHTML = html;
+      btn.disabled = false;
+    }
+
+    // ===== PASSWORD CHECK =====
+    async function checkPassword() {
+      const pw = document.getElementById('pwInput').value;
+      const resultEl = document.getElementById('pwResult');
+      const btn = document.getElementById('pwBtn');
+
+      if (!pw) {
+        resultEl.className = 'result visible';
+        resultEl.innerHTML = `
+          <div class="error-box">
+            <span class="icon">⚠️</span>
+            <div>Bitte ein Passwort eingeben.</div>
+          </div>`;
+        return;
+      }
+
+      btn.disabled = true;
+      resultEl.className = 'result visible';
+      resultEl.innerHTML = `
+        <div class="loading-box">
+          <div class="spinner"></div>
+          <div class="loading-text">Prüfe Stärke &amp; Leaks …</div>
+          <div class="loading-steps">
+            <div class="loading-step active" id="step-zx">
+              <span class="dot"></span> Stärke (zxcvbn)
+            </div>
+            <div class="loading-step active" id="step-hibp">
+              <span class="dot"></span> Leak-Check (HIBP)
+            </div>
+          </div>
+        </div>`;
+
+      try {
+        // 1. zxcvbn strength (instant)
+        const strength = zxcvbn(pw);
+        const score = strength.score;
+        const scoreLabels = ['Sehr schwach', 'Schwach', 'Mittel', 'Stark', 'Sehr stark'];
+        const scoreColors = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee'];
+        const scoreBadge = score <= 1 ? 'badge-danger' : score === 2 ? 'badge-warn' : 'badge-safe';
+
+        const stepZx = document.getElementById('step-zx');
+        if (stepZx) { stepZx.classList.remove('active'); stepZx.classList.add('done'); }
+
+        // 2. HIBP k-Anonymity
+        const hash = await sha1(pw);
+        const prefix = hash.substring(0, 5);
+        const suffix = hash.substring(5);
+
+        const hibpRes = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+          headers: { 'Add-Padding': 'true' }
+        });
+        if (!hibpRes.ok) throw new Error('Have I Been Pwned nicht erreichbar (HTTP ' + hibpRes.status + ')');
+
+        const text = await hibpRes.text();
+        let timesPwned = 0;
+        for (const line of text.split('\n')) {
+          const [hashSuffix, count] = line.trim().split(':');
+          if (hashSuffix === suffix) {
+            timesPwned = parseInt(count, 10);
+            break;
+          }
+        }
+
+        const stepHibp = document.getElementById('step-hibp');
+        if (stepHibp) { stepHibp.classList.remove('active'); stepHibp.classList.add('done'); }
+
+        await new Promise(r => setTimeout(r, 200));
+
+        const feedback = [];
+        if (strength.feedback.warning) feedback.push(strength.feedback.warning);
+        if (strength.feedback.suggestions?.length) feedback.push(...strength.feedback.suggestions);
+        const crackTime = strength.crack_times_display.offline_slow_hashing_1e4_per_second || 'unbekannt';
+
+        resultEl.innerHTML = `
+          <div class="status-card ${timesPwned > 0 ? 'danger' : 'ok'}">
+            <div class="status-title" style="flex-wrap:wrap;gap:0.4rem">
+              <span class="badge ${scoreBadge}">Stärke: ${scoreLabels[score]} (${score}/4)</span>
+              ${timesPwned > 0
+                ? `<span class="badge badge-danger">In ${timesPwned.toLocaleString('de-DE')} Leaks</span>`
+                : `<span class="badge badge-safe">Nicht in bekannten Leaks</span>`}
+            </div>
+            <div class="score-bar">
+              <div class="score-fill" style="width:${(score + 1) * 20}%;background:${scoreColors[score]}"></div>
+            </div>
+            <p class="feedback">Geschätzte Offline-Knackzeit: <strong>${escapeHtml(crackTime)}</strong></p>
+            ${feedback.length ? `<p class="feedback" style="margin-top:0.4rem">${feedback.map(f => '• ' + escapeHtml(f)).join('<br>')}</p>` : ''}
+            ${timesPwned > 0 ? `<p class="feedback" style="margin-top:0.6rem;color:var(--accent-red)"><strong>Dieses Passwort wurde bereits geleakt.</strong> Sofort ändern und nirgends wiederverwenden!</p>` : ''}
+          </div>
+          <p class="feedback" style="margin-top:0.9rem;font-size:0.8rem;opacity:0.85">
+            Stärke: zxcvbn · Leaks: <a href="https://haveibeenpwned.com/Passwords" target="_blank" style="color:var(--accent-blue)">Have I Been Pwned</a> (k-Anonymity)
+          </p>`;
+      } catch (err) {
+        const stepHibp = document.getElementById('step-hibp');
+        if (stepHibp) { stepHibp.classList.remove('active'); stepHibp.classList.add('fail'); }
+
+        resultEl.innerHTML = `
+          <div class="error-box">
+            <span class="icon">🔌</span>
+            <div>
+              <strong>Leak-Check fehlgeschlagen</strong><br>
+              ${escapeHtml(err.message)}<br>
+              <span style="opacity:0.85;font-size:0.85rem">Die Stärke-Prüfung läuft lokal und funktioniert trotzdem. Bitte später erneut versuchen.</span>
+            </div>
+          </div>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // Enter key support
+    document.getElementById('emailInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkEmail();
+    });
+    document.getElementById('pwInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkPassword();
+    });
+  </script>
+</body>
+</html>
